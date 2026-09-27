@@ -243,7 +243,6 @@
             background: var(--red-badge);
             color: var(--red-text);
         }
-        /* Style des contrôles Admin (+ / -) */
         .admin-stock-control {
             display: flex;
             align-items: center;
@@ -402,11 +401,10 @@
         let currentFilter = "all";
         let currentPage = 1;
 
-        // Variables d'administration
         let isAdmin = false;
         let adminPassword = "";
 
-        function toggleAdmin() {
+        async function toggleAdmin() {
             if (isAdmin) {
                 isAdmin = false;
                 adminPassword = "";
@@ -414,11 +412,39 @@
                 renderCards();
             } else {
                 const pwd = prompt("Entrez le mot de passe Administrateur :");
-                if (pwd) {
-                    adminPassword = pwd;
-                    isAdmin = true;
-                    document.getElementById('admin-btn').innerText = "🔓 Déconnexion Admin";
-                    renderCards();
+                if (!pwd) return;
+
+                const syncBadge = document.getElementById('sync-badge');
+                syncBadge.innerText = "Vérification...";
+                syncBadge.style.background = "#ffa726";
+
+                try {
+                    const response = await fetch(SCRIPT_URL, {
+                        method: "POST",
+                        body: JSON.stringify({
+                            password: pwd,
+                            action: "verify"
+                        })
+                    });
+
+                    const resData = await response.json();
+                    if (resData.status === "success") {
+                        adminPassword = pwd;
+                        isAdmin = true;
+                        document.getElementById('admin-btn').innerText = "🔓 Déconnexion Admin";
+                        syncBadge.innerText = "Synchronisé !";
+                        syncBadge.style.background = "#66bb6a";
+                        renderCards();
+                    } else {
+                        alert("Mot de passe incorrect !");
+                        syncBadge.innerText = "Synchronisé !";
+                        syncBadge.style.background = "#66bb6a";
+                    }
+                } catch (err) {
+                    console.error(err);
+                    alert("Erreur de connexion au serveur.");
+                    syncBadge.innerText = "Erreur synchro";
+                    syncBadge.style.background = "#c62828";
                 }
             }
         }
@@ -539,8 +565,7 @@
                     rows.push({
                         numero: numCell,
                         stock: (stockCell === "" || isNaN(Number(stockCell))) ? 0 : Number(stockCell),
-                        imageUrl: finalUrl,
-                        rawRowIndex: i // Index original de la ligne
+                        imageUrl: finalUrl
                     });
                 }
             }
@@ -579,7 +604,6 @@
             renderCards();
         }
 
-        // Modification dynamique du stock en direct
         async function adjustStock(itemNum, delta, btnElement) {
             if (!isAdmin) return;
 
@@ -587,7 +611,6 @@
             syncBadge.innerText = "Mise à jour...";
             syncBadge.style.background = "#ffa726";
 
-            // Mise à jour locale immédiate (Optimistic UI)
             const raw = allSheetsData[currentSheet];
             for (let i = 0; i < raw.length; i++) {
                 let cellVal = raw[i][0];
@@ -608,7 +631,6 @@
 
             renderContent();
 
-            // Envoi de la requête au serveur Google Apps Script
             try {
                 const response = await fetch(SCRIPT_URL, {
                     method: "POST",
@@ -628,7 +650,7 @@
                     alert("Erreur lors de la mise à jour : " + resData.message);
                     syncBadge.innerText = "Erreur synchro";
                     syncBadge.style.background = "#c62828";
-                    initStockApp(); // Rechargement complet en cas d'échec
+                    initStockApp();
                 }
             } catch (err) {
                 console.error(err);
@@ -680,7 +702,6 @@
                 const badgeClass = inStock ? 'in-stock' : 'out-stock';
                 const badgeText = inStock ? `En stock (${item.stock})` : 'Épuisé';
 
-                // Badge + Contrôles Admin
                 let stockControlHtml = '';
                 if (isAdmin) {
                     stockControlHtml = `
